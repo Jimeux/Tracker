@@ -1,0 +1,19 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# GitHub Webhooks endpoint
+
+POST  /github/payload          controllers.WebhookController.payload
+
+
+# App routes
+
+GET   /issues/:id              controllers.IssueController.get(id: Int)
+GET   /issues                  controllers.IssueController.getAll(page: Int = 1, perPage: Int = 10)
+GET   /                        controllers.HomeController.index
+
+
+# Static assets
+
+GET   /assets/*file            controllers.Assets.versioned(path="/public", file: Asset)

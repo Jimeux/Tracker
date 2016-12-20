@@ -4,6 +4,7 @@ import data.entities.tracker.User
 import slick.driver.PostgresDriver.api._
 
 trait UserTable {
+
   class Users(tag: Tag) extends BaseTable[User](tag, "users") {
     def login = column[String]("login")
     def avatarUrl = column[String]("avatar_url")

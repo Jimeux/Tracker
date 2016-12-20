@@ -9,7 +9,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.concurrent.Future
 
-@ImplementedBy(classOf[IssueDaoImpl])
+@ImplementedBy(classOf[IssueRepositoryImpl])
 trait IssueRepository {
   def getAll(offset: Int, limit: Int): Future[Seq[IssueItem]]
   def get(id: Int): Future[Option[IssueItem]]
@@ -17,7 +17,7 @@ trait IssueRepository {
 }
 
 @Singleton
-class IssueDaoImpl @Inject()(val dbConfigProvider: DatabaseConfigProvider)
+class IssueRepositoryImpl @Inject()(val dbConfigProvider: DatabaseConfigProvider)
   extends IssueRepository
     with HasDatabaseConfigProvider[JdbcProfile]
     with IssueTable
@@ -26,11 +26,9 @@ class IssueDaoImpl @Inject()(val dbConfigProvider: DatabaseConfigProvider)
   import driver.api._
 
   override def create(issue: Issue) =
-    db.run(issues.filter(_.id === issue.id).result.headOption).flatMap {
-      case Some(found) =>
-        Future.successful(found)
-      case None =>
-        db.run((issues returning issues) += issue)
+    db.run(issues.getFirst(issue.id)).flatMap {
+      case Some(found) => Future.successful(found)
+      case _ => db.run(issues.insert(issue))
     }
 
   override def get(id: Int) =

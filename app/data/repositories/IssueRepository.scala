@@ -1,44 +1,43 @@
 package data.repositories
 
 import com.google.inject.{ImplementedBy, Inject, Singleton}
-import data.entities.tracker.{Issue, IssueItem}
-import data.tables.{IssueTable, UserTable}
-import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
-import slick.driver.JdbcProfile
+import data.entities.tracker.{Issue, IssueItem, User}
+import data.tables._
+import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.concurrent.Future
 
 @ImplementedBy(classOf[IssueRepositoryImpl])
-trait IssueRepository {
-  def getAll(offset: Int, limit: Int): Future[Seq[IssueItem]]
-  def get(id: Int): Future[Option[IssueItem]]
-  def create(issue: Issue): Future[Issue]
+trait IssueRepository extends BaseRepository[IssueTable, Issue] {
+  def getWithUser(id: Int): Future[Option[IssueItem]]
+  def getAllWithUser(offset: Int, limit: Int): Future[Seq[IssueItem]]
+  def createWithUser(issue: Issue, user: User): Future[IssueItem]
 }
 
 @Singleton
-class IssueRepositoryImpl @Inject()(val dbConfigProvider: DatabaseConfigProvider)
-  extends IssueRepository
-    with HasDatabaseConfigProvider[JdbcProfile]
-    with IssueTable
-    with UserTable {
+class IssueRepositoryImpl @Inject()(
+  val dbConfigProvider: DatabaseConfigProvider,
+  val userRepo: UserRepository
+) extends BaseRepositoryImpl[IssueTable, Issue](IssueTable.table)
+  with IssueRepository {
 
   import driver.api._
 
-  override def create(issue: Issue) =
-    db.run(issues.getFirst(issue.id)).flatMap {
-      case Some(found) => Future.successful(found)
-      case _ => db.run(issues.insert(issue))
-    }
+  def createWithUser(issue: Issue, user: User) = for {
+    i <- createIfNotExists(issue)
+    u <- userRepo.createIfNotExists(user)
+  } yield toIssueItem((i, u))
 
-  override def get(id: Int) =
-    db.run((issues join users on (_.userId === _.id))
+  def getWithUser(id: Int) =
+    db.run((table join userRepo.table on (_.userId === _.id))
       .filter(_._1.id === id).result.headOption)
-      .map(_.map((IssueItem.apply _).tupled))
+      .map(_.map(toIssueItem))
 
-  override def getAll(offset: Int, limit: Int) =
-    db.run((issues join users on (_.userId === _.id))
+  def getAllWithUser(offset: Int, limit: Int) =
+    db.run((table join userRepo.table on (_.userId === _.id))
       .drop(offset).take(limit).result)
-      .map(_.map((IssueItem.apply _).tupled))
+      .map(_.map(toIssueItem))
 
+  def toIssueItem(row: (Issue, User)) = IssueItem.apply _ tupled row
 }

@@ -14,14 +14,14 @@ trait IssueService {
 }
 
 @Singleton
-class IssueServiceImpl @Inject()(issueDao: IssueRepository) extends IssueService {
+class IssueServiceImpl @Inject()(issueRepo: IssueRepository) extends IssueService {
 
   def get(page: Int, perPage: Int) =
-    issueDao.getAll(offset(page, perPage), perPage)
+    issueRepo.getAllWithUser(offset(page, perPage), perPage)
       .map(Json.toJson(_))
 
   def get(id: Int) =
-    issueDao.get(id).map(_.map(Json.toJson(_)))
+    issueRepo.getWithUser(id).map(_.map(Json.toJson(_)))
 
   def offset(page: Int, perPage: Int) = page * perPage - perPage
 

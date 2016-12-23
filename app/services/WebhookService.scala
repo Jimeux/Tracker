@@ -6,7 +6,7 @@ import javax.crypto.spec.SecretKeySpec
 import com.google.inject.{ImplementedBy, Inject, Singleton}
 import constants.GitHubConstants.Webhooks
 import data.entities.github.webhook.IssuePayload
-import data.entities.tracker.{Issue, User}
+import data.entities.tracker.{Issue, IssueItem, User}
 import data.repositories.{IssueRepository, UserRepository}
 import play.api.Configuration
 import play.api.libs.Codecs
@@ -16,15 +16,15 @@ import scala.concurrent.Future
 
 @ImplementedBy(classOf[WebhookServiceImpl])
 trait WebhookService {
-  def handlePayload(event: String, payload: JsValue): Future[Issue]
+  def handlePayload(event: String, payload: JsValue): Future[IssueItem]
   def verifySignature(signature: String, body: JsValue): Boolean
 }
 
 @Singleton
 class WebhookServiceImpl @Inject()(
   config: Configuration,
-  issueRepo: IssueRepository,
-  userRepo: UserRepository
+  userRepo: UserRepository,
+  issueRepo: IssueRepository
 ) extends WebhookService {
 
   class WebhookEventNotSupportedException(event: String) extends Exception {
@@ -55,8 +55,7 @@ class WebhookServiceImpl @Inject()(
     case Some(json) =>
       json.action match {
         case IssuePayload.Actions.Opened =>
-          userRepo.create(User.of(json.issue.user))
-          issueRepo.create(Issue.of(json.issue))
+          issueRepo.createWithUser(Issue.of(json.issue), User.of(json.issue.user))
         case _ =>
           Future.failed(new IssueActionNotSupportedException)
       }
